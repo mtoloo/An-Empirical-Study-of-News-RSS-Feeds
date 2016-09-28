@@ -22,6 +22,7 @@ NEWS_SITES = {
     'news18-tech': 'http://www.news18.com/rss/tech.xml',
     'news18-business': 'http://www.news18.com/rss/business.xml',
     'google-main': 'https://news.google.com/news?cf=all&hl=en&pz=1&ned=us&output=rss',
-    'google-iran': 'http://news.google.com/news?cf=all&hl=en&pz=1&ned=us&q=Iran&output=rss',
-    'google-iran-nuclear': 'http://news.google.com/news?cf=all&hl=en&pz=1&ned=us&q=iran+nuclear+deal&output=rss'
+    'google-technology': 'http://news.google.com/news?cf=all&hl=en&pz=1&ned=us&topic=tc&output=rss',
+    'google-science': 'http://news.google.com/news?cf=all&hl=en&pz=1&ned=us&topic=snc&output=rss',
+    'google-health': 'http://news.google.com/news?cf=all&hl=en&pz=1&ned=us&topic=m&output=rss',
 }
