@@ -42,6 +42,15 @@ class RSS(object):
         return result
 
     @classmethod
+    def load_all_news_as_array(cls):
+        result = []
+        for file_name in RSS.stored_files():
+            data = RSS.load_file_data(file_name)
+            for link, title in data.iteritems():
+                result.append({"link": link, "title": title})
+        return result
+
+    @classmethod
     def stored_files(cls):
         return os.listdir(cls.data_path())
 
