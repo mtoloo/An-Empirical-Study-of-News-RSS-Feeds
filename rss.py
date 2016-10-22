@@ -1,6 +1,7 @@
 import json
 import os
 import feedparser
+import time
 
 from config import *
 
@@ -14,21 +15,26 @@ class RSS(object):
     @classmethod
     def store_site_rss(cls, site_name, site_xml):
         file_name = site_name + ".json"
-        if os.path.isfile(file_name):
-            data = cls.load_file_data(file_name)
-        else:
-            data = {}
+        data = cls.load_file_data(file_name)
         rss = feedparser.parse(site_xml)
         entries = rss['entries']
         for entry in entries:
             data[entry['link']] = entry['title']
-        with open(file_name, 'w') as f:
-            f.write(json.dumps(data, indent=4))
+        cls.save_file_data(file_name, data)
 
     @classmethod
     def load_file_data(cls, file_name):
-        with open(os.path.join(cls.data_path(), file_name)) as f:
+        file_path = os.path.join(cls.data_path(), file_name)
+        if not os.path.isfile(file_path):
+            return {}
+        with open(file_path) as f:
             return json.loads(f.read())
+
+    @classmethod
+    def save_file_data(cls, file_name, data):
+        file_path = os.path.join(cls.data_path(), file_name)
+        with open(file_path, 'w') as f:
+            f.write(json.dumps(data, indent=4))
 
     @classmethod
     def count_file_rss(cls, file_name):
@@ -60,5 +66,8 @@ class RSS(object):
 
 if __name__ == '__main__':
     print "Before", json.dumps(RSS.count_stored_rss(), indent=4)
+    print "Working...",
+    start_time = time.time()
     RSS.store_sites_rss()
+    print "Finished after ", time.time() - start_time, "ms"
     print "After", json.dumps(RSS.count_stored_rss(), indent=4)

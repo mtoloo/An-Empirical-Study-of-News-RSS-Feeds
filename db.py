@@ -110,6 +110,47 @@ class DB(object):
         for user in users:
             user['news'] = random.sample(news, random.randrange(50))
 
+    @classmethod
+    def select_users_mysql(cls, count):
+        db = cls.mysql_connection()
+        cursor = db.cursor()
+        try:
+            cursor.execute("select max(id) from userdata")
+            max_user_id,  = cursor.fetchone()
+            for i in range(count):
+                user_id = random.randrange(1, max_user_id)
+                cursor.execute("""Select * from userdata u
+                                join user_read_news rn on u.id = rn.user_id
+                                join newsdata n on rn.news_id = n.id
+                                where u.id = %(user_id)s""", {'user_id': user_id})
+        finally:
+            db.close()
+
+    @classmethod
+    def select_users_mongo(cls, count):
+        db = cls.mongodb_connection()
+        try:
+            max_user_id = db.userdata.find_one(sort=[("id", pymongo.DESCENDING)])['id']
+            for i in range(count):
+                user_id = random.randrange(1, max_user_id)
+                db.userdata.find_one({'id': user_id})
+        finally:
+            pass
+            # db.close()
+
+    @classmethod
+    def mysql_change_engine(cls, engine):
+        db = cls.mysql_connection()
+        try:
+            cursor = db.cursor()
+            cursor.execute("alter table userdata engine=%s" % engine)
+            cursor.execute("alter table newsdata engine=%s" % engine)
+            cursor.execute("alter table user_read_news engine=%s" % engine)
+            db.commit()
+        finally:
+            db.close()
+
+
 
 if __name__ == '__main__':
     news = RSS.load_all_news_as_array()
