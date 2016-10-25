@@ -14,7 +14,7 @@ from rss import RSS
 
 class DB(object):
     @classmethod
-    def init_mysql(cls):
+    def init_mysql(cls, engine='innodb'):
         db = cls.mysql_connection()
         cursor = db.cursor()
         # try:
@@ -26,16 +26,39 @@ class DB(object):
         cursor.execute("DROP TABLE IF EXISTS user_read_news")
         cursor.execute("""CREATE TABLE userdata (id int AUTO_INCREMENT PRIMARY KEY,
                                                             uname VARCHAR (255),
-                                                            password VARCHAR (255))""")
+                                                            password VARCHAR (255))
+                                                engine=%s""" % engine)
         cursor.execute("""CREATE TABLE newsdata (id int AUTO_INCREMENT PRIMARY KEY,
                                                             title VARCHAR (255),
-                                                           link VARCHAR (512))""")
-        cursor.execute("""CREATE TABLE user_read_news (user_id int, news_id int)""")
+                                                           link VARCHAR (512))
+                                                engine=%s""" % engine)
+        cursor.execute("""CREATE TABLE user_read_news (user_id int, news_id int)
+                                                       engine=%s""" % engine)
         cursor.close()
 
     @staticmethod
     def mysql_connection():
         return MySQLdb.connect(MYSQL_HOST, MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_DATABASE)
+
+    @classmethod
+    def mysql_created(cls):
+        try:
+            cls.mysql_connection()
+            return True
+        except:
+            return False
+
+    @classmethod
+    def mysql_stat(cls):
+        db = cls.mysql_connection()
+        cursor = db.cursor()
+        try:
+            cursor.execute("select count(*) from newsdata")
+            result = {'news': cursor.fetchone()[0]}
+            return result
+        finally:
+            cursor.close()
+            db.close()
 
     @staticmethod
     def init_mongo():
@@ -52,11 +75,13 @@ class DB(object):
         return db
 
     @classmethod
-    def store_data_into_mysql(cls, news):
+    def store_data_into_mysql(cls, news, progress_callback=None):
         db = cls.mysql_connection()
         cursor = db.cursor()
         try:
             for row in news:
+                if progress_callback and not progress_callback():
+                    break
                 try:
                     cursor.execute("insert into newsdata (title, link) values (%(title)s, %(link)s)", row)
                     row['mysql_id'] = cursor.lastrowid
@@ -69,10 +94,12 @@ class DB(object):
         return news
 
     @classmethod
-    def store_data_into_mongodb(cls, news):
+    def store_data_into_mongodb(cls, news, progress_callback=None):
         db = cls.mongodb_connection()
         newsdata = db.get_collection('newsdata')
         for row in news:
+            if progress_callback and progress_callback():
+                break
             newsdata.insert({"link": row['link'], "title": row['title']})
 
     @classmethod
@@ -81,11 +108,13 @@ class DB(object):
         return result
 
     @classmethod
-    def store_users_in_mysql(cls, users):
+    def store_users_in_mysql(cls, users, progress_callback=None):
         db = cls.mysql_connection()
         cursor = db.cursor()
         try:
             for user in users:
+                if progress_callback and not progress_callback():
+                    break
                 cursor.execute("insert into userdata (id, uname, password) values (%(id)s, %(uname)s, %(password)s)",
                                {"id": user['id'], "uname": user['uname'], "password": user['password']})
                 user_id = cursor.lastrowid
@@ -99,10 +128,12 @@ class DB(object):
             cursor.close()
 
     @classmethod
-    def store_users_into_mongodb(cls, users):
+    def store_users_into_mongodb(cls, users, progress_callback):
         db = cls.mongodb_connection()
         userdata = db.get_collection('userdata')
         for user in users:
+            if progress_callback and not progress_callback(None, len(users), None):
+                break
             userdata.insert(user)
 
     @classmethod
@@ -111,13 +142,16 @@ class DB(object):
             user['news'] = random.sample(news, random.randrange(50))
 
     @classmethod
-    def select_users_mysql(cls, count):
+    def select_users_mysql(cls, count, progress_callback):
         db = cls.mysql_connection()
         cursor = db.cursor()
         try:
             cursor.execute("select max(id) from userdata")
             max_user_id,  = cursor.fetchone()
             for i in range(count):
+                if progress_callback:
+                    if not progress_callback():
+                        break
                 user_id = random.randrange(1, max_user_id)
                 cursor.execute("""Select * from userdata u
                                 join user_read_news rn on u.id = rn.user_id
@@ -127,11 +161,14 @@ class DB(object):
             db.close()
 
     @classmethod
-    def select_users_mongo(cls, count):
+    def select_users_mongo(cls, count, progress_callback):
         db = cls.mongodb_connection()
         try:
             max_user_id = db.userdata.find_one(sort=[("id", pymongo.DESCENDING)])['id']
             for i in range(count):
+                if progress_callback:
+                    if not progress_callback():
+                        break
                 user_id = random.randrange(1, max_user_id)
                 db.userdata.find_one({'id': user_id})
         finally:

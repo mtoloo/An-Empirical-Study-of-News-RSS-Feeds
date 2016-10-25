@@ -8,8 +8,24 @@ from config import *
 
 class RSS(object):
     @classmethod
-    def store_sites_rss(cls):
-        for site_name, site_xml in NEWS_SITES.iteritems():
+    def sources(cls):
+        with open(RSS.sources_file()) as f:
+            return json.loads(f.read())
+
+    @classmethod
+    def sources_file(cls):
+        return os.path.join(os.path.dirname(__file__), 'sources.json')
+
+    @classmethod
+    def store_sites_rss(cls, progress_callback=None):
+        sources = cls.sources()
+        total = len(sources)
+        current = 0
+        for site_name, site_xml in sources.iteritems():
+            if progress_callback:
+                if not progress_callback(current, total, site_name):
+                    return
+            current += 1
             cls.store_site_rss(site_name, site_xml)
 
     @classmethod
