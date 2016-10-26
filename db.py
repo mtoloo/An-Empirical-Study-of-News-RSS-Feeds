@@ -113,12 +113,12 @@ class DB(object):
         cursor = db.cursor()
         try:
             for user in users:
-                if progress_callback and not progress_callback():
-                    break
                 cursor.execute("insert into userdata (id, uname, password) values (%(id)s, %(uname)s, %(password)s)",
                                {"id": user['id'], "uname": user['uname'], "password": user['password']})
                 user_id = cursor.lastrowid
                 for news in user['news']:
+                    if progress_callback and not progress_callback():
+                        return
                     if 'mysql_id' not in news: continue
                     news_id = news['mysql_id']
                     cursor.execute("insert into user_read_news (user_id, news_id) values (%(user_id)s, %(news_id)s)",
@@ -131,15 +131,20 @@ class DB(object):
     def store_users_into_mongodb(cls, users, progress_callback):
         db = cls.mongodb_connection()
         userdata = db.get_collection('userdata')
+        current = 0
         for user in users:
-            if progress_callback and not progress_callback(None, len(users), None):
+            current += len(user['news'])
+            if progress_callback and not progress_callback(current):
                 break
             userdata.insert(user)
 
     @classmethod
     def assign_news_to_users_randomly(cls, news, users):
+        result = 0
         for user in users:
             user['news'] = random.sample(news, random.randrange(50))
+            result += len(user['news'])
+        return result
 
     @classmethod
     def select_users_mysql(cls, count, progress_callback):
@@ -186,7 +191,6 @@ class DB(object):
             db.commit()
         finally:
             db.close()
-
 
 
 if __name__ == '__main__':

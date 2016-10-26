@@ -17,6 +17,7 @@ class Example(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
 
+        self.progress_current = 0
         self.last_update = time.time()
         self.stopped = False
         self.mysql_engine = StringVar()
@@ -44,9 +45,9 @@ class Example(Frame):
         innodbRadio = Radiobutton(self, text="InnoDB", variable=self.mysql_engine, value='innodb')
         innodbRadio.grid(row=3, column=0)
         Button(self, text="Initialize Database", command=self.initialize_database).grid(row=4, column=0)
-        self.fill_database_button = Button(self, text="Fill Database", command=self.fill_database_from_files )
+        self.fill_database_button = Button(self, text="Insert", command=self.fill_database_from_files )
         self.fill_database_button.grid(row=5, column=0)
-        self.benchmark_button = Button(self, text="Benchmark", command=self.benchmark)
+        self.benchmark_button = Button(self, text="Select", command=self.benchmark)
         self.benchmark_button.grid(row=6, column=0)
         self.stop_button = Button(self, text="Stop", command=self.stop)
         self.stop_button.grid(row=7, column=0, pady=4)
@@ -59,7 +60,7 @@ class Example(Frame):
         self.progress_bar = Progressbar(self, orient='horizontal')
         self.progress_bar.grid(row=7, column=2, columnspan=2)
         self.progress_bar.grid_forget()
-        self.progress_text = Label(self, text="Ready", width=20)
+        self.progress_text = Label(self, text="Ready", width=30)
         self.progress_text.grid(row=7, column=1)
         self.progress_text.grid_forget()
 
@@ -75,33 +76,37 @@ class Example(Frame):
         self.log(json.dumps(RSS.count_stored_rss(), indent=4))
 
     def initialize_database(self):
-        self.log("mysql..")
+        self.log_separator()
+        self.progress_started("Initialize...", 2)
+        self.show_progress(1)
         DB.init_mysql(self.mysql_engine.get())
-        self.log("mongo..")
+        self.show_progress(2)
         DB.init_mongo()
-        self.set_status()
+        self.progress_finished()
 
     def fill_database_from_files(self):
         self.log("init...")
         news = RSS.load_all_news_as_array()
         users = DB.generate_users()
         DB.assign_news_to_users_randomly(news=news, users=users)
-        self.progress_started("mysql..", len(news))
+        self.progress_started("MySQL", len(news))
+        self.show_progress(0, 0, "mysql : news ..")
         news = DB.store_data_into_mysql(news, self.show_progress)
         if self.stopped: return
-        self.show_progress(0, 0, 'init users..')
-        DB.assign_news_to_users_randomly(news, users)
+        self.show_progress(0, len(users), 'init users..')
+        user_news_count = DB.assign_news_to_users_randomly(news, users)
         if self.stopped: return
-        self.show_progress(0, 0, 'users reading news..')
+        self.show_progress(0, user_news_count, 'mysql: users reading news..')
         DB.store_users_in_mysql(users, self.show_progress)
         if self.stopped: return
         self.progress_finished()
         self.parent.update()
         time.sleep(1)
-        self.progress_started("mongo...")
+        self.progress_started("MongoDB")
+        self.show_progress(0, len(news), 'mongo: news')
         DB.store_data_into_mongodb(news, self.show_progress)
         if self.stopped: return
-        self.show_progress(0, 0, 'users reading news..')
+        self.show_progress(0, user_news_count, 'mongo: users reading news..')
         DB.store_users_into_mongodb(users, self.show_progress)
         if self.stopped: return
         self.progress_finished()
@@ -110,12 +115,12 @@ class Example(Frame):
     def benchmark(self):
         self.log_separator()
         count = 1000
-        self.progress_started("mysql...", total=count)
+        self.progress_started("MySQL", total=count)
         DB.select_users_mysql(count, self.show_progress)
         self.progress_finished()
         self.parent.update()
         time.sleep(1)
-        self.progress_started("Mongodb...")
+        self.progress_started("Mongodb")
         DB.select_users_mongo(count, self.show_progress)
         self.progress_finished()
 
@@ -137,24 +142,26 @@ class Example(Frame):
         self.stop_button['state'] = NORMAL if self.stopped else DISABLED
         # self.mysql_engine.set('innodb')
 
-    def show_progress(self, current=None, total=None, text=None):
-        if total:
-            self.progress_bar['maximum'] = total
-        if current is None:
-            current = self.progress_bar['value'] + 1
-        self.progress_bar['value'] = current
-        if text:
-            self.progress_text['text'] = text
-        self.stop_button['state'] = NORMAL
-        if time.time() - self.last_update > 0.2 or total is None or current > total - 2:
-            self.parent.update()
-            self.last_update = time.time()
-        return not self.stopped
-
     def stop(self):
         self.stopped = True
         self.stop_button['state'] = DISABLED
         self.parent.update()
+
+    def show_progress(self, current=None, total=None, text=None):
+        if total:
+            self.progress_bar['maximum'] = total
+        if current is None:
+            current = self.progress_current + 1
+        self.progress_current = current
+        if text:
+            text += " (%d)" % (total or self.progress_bar['maximum'])
+            self.progress_text['text'] = text
+        self.stop_button['state'] = NORMAL
+        if time.time() - self.last_update > 0.1:
+            self.progress_bar['value'] = current
+            self.parent.update()
+            self.last_update = time.time()
+        return not self.stopped
 
     def progress_started(self, log=None, total=None):
         self.start_time = datetime.now()

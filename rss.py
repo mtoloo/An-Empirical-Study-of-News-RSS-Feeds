@@ -3,8 +3,6 @@ import os
 import feedparser
 import time
 
-from config import *
-
 
 class RSS(object):
     @classmethod
