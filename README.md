@@ -8,8 +8,10 @@ This project requires the following packages to be installed on your OS (prefera
     python 2.7
     mysql-server
     mongodb
+    python-dev
+    python-tk
 
-Also the following modules of python are required:
+Also the following modules of python are required to be installed:
 
     feedparser
     MySQLdb
@@ -27,8 +29,5 @@ Then using `pip` command, you have to be able to install all required modules:
     pip install feedparser
     pip install pymongo
 
-**How it works**
-
-You have to create databases using `db.py` file. It contains two main method `init_mysql()` and `init_mongodb()` which have to be called first.
-Then call `RSS.store_sites_rss()` from `rss.py` to load rss entries from a list of news sites into .json files under the `data` directory.
-After completing .json files under the `data` directory, 
+Take a look a config.py file and make necessary changes.
+Also Database specified in config.py should be created.
