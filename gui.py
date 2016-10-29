@@ -47,21 +47,23 @@ class Example(Frame):
         Button(self, text="Initialize Database", command=self.initialize_database).grid(row=4, column=0)
         self.fill_database_button = Button(self, text="Insert", command=self.fill_database_from_files )
         self.fill_database_button.grid(row=5, column=0)
-        self.benchmark_button = Button(self, text="Select", command=self.benchmark)
+        self.benchmark_button = Button(self, text="Select", command=self.select_benchmark)
         self.benchmark_button.grid(row=6, column=0)
+        self.benchmark_button = Button(self, text="Update", command=self.update_benchmark)
+        self.benchmark_button.grid(row=7, column=0)
         self.stop_button = Button(self, text="Stop", command=self.stop)
-        self.stop_button.grid(row=7, column=0, pady=4)
-        Button(self, text="Close", command=self.quit).grid(row=8, column=0, pady=4)
+        self.stop_button.grid(row=8, column=0, pady=4)
+        # Button(self, text="Close", command=self.quit).grid(row=8, column=0, pady=4)
 
         Label(self, text="Log").grid(row=0, column=1)
         self.area = Text(self)
-        self.area.grid(row=1, column=1, columnspan=2, rowspan=6, padx=10, sticky=E + W + S + N)
+        self.area.grid(row=1, column=1, columnspan=2, rowspan=7, padx=10, sticky=E + W + S + N)
 
         self.progress_bar = Progressbar(self, orient='horizontal')
-        self.progress_bar.grid(row=7, column=2, columnspan=2)
+        self.progress_bar.grid(row=8, column=2, columnspan=2)
         self.progress_bar.grid_forget()
         self.progress_text = Label(self, text="Ready", width=30)
-        self.progress_text.grid(row=7, column=1)
+        self.progress_text.grid(row=8, column=1)
         self.progress_text.grid_forget()
 
         self.pack()
@@ -112,7 +114,7 @@ class Example(Frame):
         self.progress_finished()
         self.set_status()
 
-    def benchmark(self):
+    def select_benchmark(self):
         self.log_separator()
         count = 1000
         self.progress_started("MySQL", total=count)
@@ -122,6 +124,18 @@ class Example(Frame):
         time.sleep(1)
         self.progress_started("Mongodb")
         DB.select_users_mongo(count, self.show_progress)
+        self.progress_finished()
+
+    def update_benchmark(self):
+        self.log_separator()
+        count = 1000
+        self.progress_started("MySQL", total=count)
+        DB.update_users_reading_news_mysql(count, self.show_progress)
+        self.progress_finished()
+        self.parent.update()
+        time.sleep(1)
+        self.progress_started("Mongodb")
+        DB.update_users_reading_news_mongo(count, self.show_progress)
         self.progress_finished()
 
     def log(self, s):
@@ -165,8 +179,8 @@ class Example(Frame):
 
     def progress_started(self, log=None, total=None):
         self.start_time = datetime.now()
-        self.progress_bar.grid(row=7, column=2, columnspan=2)
-        self.progress_text.grid(row=7, column=1)
+        self.progress_bar.grid(row=8, column=2, columnspan=2)
+        self.progress_text.grid(row=8, column=1)
         if log:
             self.log(log)
         self.show_progress(0, total=total or 0, text=log or '')

@@ -56,6 +56,8 @@ class DB(object):
             cursor.execute("select count(*) from newsdata")
             result = {'news': cursor.fetchone()[0]}
             return result
+        except:
+            return {'news': 0}
         finally:
             cursor.close()
             db.close()
@@ -67,6 +69,7 @@ class DB(object):
         db.drop_collection('userdata')
         db.create_collection('newsdata')
         db.create_collection('userdata')
+        db.get_collection('userdata').create_index('id')
 
     @staticmethod
     def mongodb_connection():
@@ -84,7 +87,7 @@ class DB(object):
                     break
                 try:
                     cursor.execute("insert into newsdata (title, link) values (%(title)s, %(link)s)", row)
-                    row['mysql_id'] = cursor.lastrowid
+                    row['id'] = cursor.lastrowid
                 except BaseException as e:
                     pass
                     # sys.stderr.write("Could not store " + link + "\n" + e.message)
@@ -97,10 +100,12 @@ class DB(object):
     def store_data_into_mongodb(cls, news, progress_callback=None):
         db = cls.mongodb_connection()
         newsdata = db.get_collection('newsdata')
+        id = 1
         for row in news:
-            if progress_callback and progress_callback():
+            if progress_callback and not progress_callback():
                 break
-            newsdata.insert({"link": row['link'], "title": row['title']})
+            newsdata.insert({"id": row.get('id', id), "link": row['link'], "title": row['title']})
+            id += 1
 
     @classmethod
     def generate_users(cls, count=5000):
@@ -119,8 +124,8 @@ class DB(object):
                 for news in user['news']:
                     if progress_callback and not progress_callback():
                         return
-                    if 'mysql_id' not in news: continue
-                    news_id = news['mysql_id']
+                    if 'id' not in news: continue
+                    news_id = news['id']
                     cursor.execute("insert into user_read_news (user_id, news_id) values (%(user_id)s, %(news_id)s)",
                                    {"user_id": user_id, "news_id": news_id})
             db.commit()
@@ -154,9 +159,8 @@ class DB(object):
             cursor.execute("select max(id) from userdata")
             max_user_id,  = cursor.fetchone()
             for i in range(count):
-                if progress_callback:
-                    if not progress_callback():
-                        break
+                if progress_callback and not progress_callback():
+                    break
                 user_id = random.randrange(1, max_user_id)
                 cursor.execute("""Select * from userdata u
                                 join user_read_news rn on u.id = rn.user_id
@@ -168,17 +172,12 @@ class DB(object):
     @classmethod
     def select_users_mongo(cls, count, progress_callback):
         db = cls.mongodb_connection()
-        try:
-            max_user_id = db.userdata.find_one(sort=[("id", pymongo.DESCENDING)])['id']
-            for i in range(count):
-                if progress_callback:
-                    if not progress_callback():
-                        break
-                user_id = random.randrange(1, max_user_id)
-                db.userdata.find_one({'id': user_id})
-        finally:
-            pass
-            # db.close()
+        max_user_id = db.userdata.find_one(sort=[("id", pymongo.DESCENDING)])['id']
+        for i in range(count):
+            if progress_callback and not progress_callback():
+                break
+            user_id = random.randrange(1, max_user_id)
+            db.userdata.find_one({'id': user_id})
 
     @classmethod
     def mysql_change_engine(cls, engine):
@@ -191,6 +190,47 @@ class DB(object):
             db.commit()
         finally:
             db.close()
+
+    @classmethod
+    def update_users_reading_news_mysql(cls, count, progress_callback):
+        db = cls.mysql_connection()
+        cursor = db.cursor()
+        try:
+            cursor.execute("select max(id) from userdata")
+            max_user_id,  = cursor.fetchone()
+            cursor.execute("select max(id) from newsdata")
+            max_news_id,  = cursor.fetchone()
+            for i in range(count):
+                if progress_callback and not progress_callback():
+                    break
+                user_id = random.randrange(1, max_user_id)
+                news_id = random.randrange(1, max_news_id)
+                cursor.execute("insert into user_read_news (user_id, news_id) values (%(user_id)s, %(news_id)s)",
+                               {"user_id": user_id, "news_id": news_id})
+                db.commit()
+        finally:
+            db.close()
+
+    @classmethod
+    def update_users_reading_news_mongo(cls, count, progress_callback):
+        db = cls.mongodb_connection()
+        try:
+            max_user_id = db.userdata.find_one(sort=[("id", pymongo.DESCENDING)])['id']
+            max_news_id = db.newsdata.find_one(sort=[("id", pymongo.DESCENDING)])['id']
+            for i in range(count):
+                if progress_callback and not progress_callback():
+                    break
+                user_id = random.randrange(1, max_user_id)
+                news_id = random.randrange(1, max_news_id)
+                news = db.newsdata.find_one({'id': news_id})
+                user = db.userdata.find_one({'id': user_id})
+                if not user:
+                    print user_id
+                user.get('news', []).append(news)
+                db.userdata.update({'id': user_id}, {'news': news})
+        finally:
+            pass
+            # db.close()
 
 
 if __name__ == '__main__':
