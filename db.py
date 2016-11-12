@@ -62,6 +62,23 @@ class DB(object):
             cursor.close()
             db.close()
 
+    @classmethod
+    def mysql_users(cls):
+        db = cls.mysql_connection()
+        cursor = db.cursor()
+        try:
+            cursor.execute("select id, uname from userdata limit 5")
+            result = []
+            while True:
+                data = cursor.fetchone()
+                if not data: break
+                user_id, username = data
+                result.append({'id': user_id, 'username': username})
+            return result
+        finally:
+            cursor.close()
+            db.close()
+
     @staticmethod
     def init_mongo():
         db = DB.mongodb_connection()
@@ -109,7 +126,7 @@ class DB(object):
 
     @classmethod
     def generate_users(cls, count=5000):
-        result = [{"id": i, "uname": str(i), "password": str(i)} for i in range(1, count)]
+        result = [{"id": i, "uname": str(i), "password": str(i)} for i in range(1, count + 1)]
         return result
 
     @classmethod
@@ -226,6 +243,7 @@ class DB(object):
                 user = db.userdata.find_one({'id': user_id})
                 if not user:
                     print user_id
+                    continue
                 user.get('news', []).append(news)
                 db.userdata.update({'id': user_id}, {'news': news})
         finally:
@@ -247,3 +265,31 @@ if __name__ == '__main__':
     DB.store_data_into_mongodb(news)
     DB.store_users_into_mongodb(users)
     print "Mongo Time:", time.time() - mongo_time
+
+
+class MySQLCursor:
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.db = DB.mysql_connection()
+        self.cursor = self.db.cursor()
+        return self.cursor
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cursor.close()
+        self.db.close()
+
+
+class MongoDBConnection:
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.db = DB.mongodb_connection()
+        return self.db
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
